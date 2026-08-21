@@ -1,74 +1,101 @@
-# DeepSeek Harness
+# dsh-local-launcher · 黑色小鲸鱼启动器
+
+> [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的本地启动器 —— **黑色小鲸鱼启动器**。
+> 双击桌面上的黑色小鲸鱼图标，默认浏览器会自动打开 DeepSeek Harness Web GUI。
 
 [English](README.md) | 中文
 
-DeepSeek Harness（`dsh`）是由 [DeepSeek AI](https://deepseek.com) 开发的开源 agent harness（智能体框架）。
+## 这是什么？
 
-它采用**一切皆插件**的架构，并由 [Cordis](https://github.com/cordiverse/cordis) 驱动，其设计参见论文 [_A Programming Paradigm for Spatiotemporal Composability_](https://github.com/cordiverse/paper)。
+`dsh-local-launcher` 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）的本地部署 + 一键启动器封装，配**黑色小鲸鱼**图标。
 
-## 开发者预览
+DeepSeek Harness 是 [DeepSeek AI](https://deepseek.com) 开发的开源 agent harness（智能体框架），采用**一切皆插件**的架构，由 [Cordis](https://github.com/cordiverse/cordis) 驱动。
 
-DeepSeek Harness 目前处于 _开发者预览_ 阶段，正在快速迭代。**未来将出现破坏兼容性的变更。**
+## 特性
 
-## 运行
+- 🐋 **黑色小鲸鱼启动器** —— 桌面快捷方式带黑色小鲸鱼图标（`assets/dsh-whale.ico`）
+- ⚡ **启动自动跳转浏览器** —— 启动后默认浏览器自动打开 Web GUI（`http://127.0.0.1:3080`）
+- 🧩 DeepSeek Harness 完整源码（上游：[`deepseek-ai/deepseek-harness`](https://github.com/deepseek-ai/deepseek-harness)，MIT）
 
-### 通过 `npm` 运行
+## 快速开始
 
-安装 `Node.js`，然后运行：
+### 环境要求
 
-```sh
-npx @deepseek-ai/dsh web
-```
-
-该命令会启动 Web UI，默认地址为 `http://127.0.0.1:3080`。详见 [Web UI 指南](docs/user/guide/index.md)。
+- [Node.js](https://nodejs.org) 18+（含 `pnpm`）
 
 ### 从源码运行
 
-如需从仓库源码运行：
-
 ```sh
-git clone https://github.com/deepseek-ai/deepseek-harness.git
-cd deepseek-harness
+git clone https://github.com/drgf4/dsh-local-launcher
+cd dsh-local-launcher
 pnpm install
 pnpm run build
 pnpm dsh web
 ```
 
-## 社区与支持
+默认 Web UI 地址为 `http://127.0.0.1:3080`。
 
-- 欢迎通过 [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions) 提交反馈或 bug 报告。
-- 为你的插件仓库添加 [`dsh-plugin`](https://github.com/topics/dsh-plugin) 话题，便于被发现。
-- 欢迎加入 DeepSeek Harness 企微群：扫码添加企微小助手并填写入群问卷，完成后小助手会邀请你入群。
+### 或直接用 npm 运行（无需克隆）
 
-<table>
-  <thead>
-    <tr>
-      <th align="center">企微小助手</th>
-      <th align="center">入群问卷</th>
-      <th align="center">微信公众号</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="center"><img src="assets/community-wecom-assistant.png" alt="DeepSeek Harness 企微小助手二维码" width="180" height="180"></td>
-      <td align="center"><a href="https://trtgsjkv6r.feishu.cn/share/base/form/shrcnIt5twSVdLGD52KJBckGCgg"><img src="assets/community-wecom-survey.png" alt="DeepSeek Harness 入群问卷二维码" width="180" height="180"></a></td>
-      <td align="center"><img src="assets/community-wechat-official-account.png" alt="DeepSeek Harness 团队微信公众号二维码" width="180" height="180"></td>
-    </tr>
-  </tbody>
-</table>
+```sh
+npx @deepseek-ai/dsh web
+```
 
-## 参与贡献
+### 桌面启动器 + 自动打开浏览器（Windows）
 
-参见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+桌面黑色小鲸鱼快捷方式指向一个小包装脚本：先启动服务，等服务就绪后自动用默认浏览器打开页面：
 
-## 开发
+```js
+// launch-dsh-web.cjs —— 把快捷方式指向这个包装脚本（按实际路径改 DSH_ROOT）
+const { spawn } = require('node:child_process');
+const http = require('node:http');
+const path = require('node:path');
 
-请先阅读[开发指南](docs/development.md)与[架构文档](docs/architecture.md)。
+const DSH_ROOT = 'C:\\path\\to\\dsh-local-launcher';
+const BIN = path.join(DSH_ROOT, 'apps', 'cli', 'lib', 'bin.js');
+const FALLBACK_URL = 'http://127.0.0.1:3080';
 
-面向 agent：请遵循 [AGENTS.md](AGENTS.md)。
+let opened = false;
+const child = spawn(process.execPath, [BIN, 'web'], { cwd: DSH_ROOT, stdio: ['inherit', 'pipe', 'inherit'] });
+
+let buffered = '';
+child.stdout.on('data', (chunk) => {
+  const text = chunk.toString('utf8');
+  try { process.stdout.write(text); } catch {}
+  if (!opened) {
+    buffered += text;
+    const m = buffered.match(/https?:\/\/127\.0\.0\.1:\d+/);
+    if (m) { opened = true; spawn('cmd', ['/c', 'start', '', m[0]], { stdio: 'ignore', detached: true }).unref(); }
+  }
+});
+
+const timer = setInterval(() => {
+  if (opened) return;
+  const req = http.get(FALLBACK_URL, (res) => {
+    res.resume();
+    opened = true;
+    spawn('cmd', ['/c', 'start', '', FALLBACK_URL], { stdio: 'ignore', detached: true }).unref();
+  });
+  req.on('error', () => {});
+  req.setTimeout(1500, () => req.destroy());
+}, 1000);
+
+child.on('exit', (code, signal) => { clearInterval(timer); process.exitCode = code ?? (signal ? 1 : 0); });
+```
+
+> 快捷方式应运行 `node "路径\to\launch-dsh-web.cjs"`，并将工作目录设为仓库根目录。
+
+## 目录结构
+
+- `apps/` —— CLI 与 Web 应用
+- `packages/` —— DeepSeek Harness 全部包（插件化架构）
+- `assets/` —— 启动器用的黑色小鲸鱼图标
+- `docs/` —— 文档
 
 ## 许可证
 
-[MIT](LICENSE)
+[MIT](LICENSE) —— 上游 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 为 MIT 协议，第三方依赖及其许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-第三方依赖及其许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+## 上游
+
+本仓库是 [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) 的本地启动器分发，非 DeepSeek AI 官方项目。

@@ -1,57 +1,101 @@
-# DeepSeek Harness
+# dsh-local-launcher · 黑色小鲸鱼启动器
+
+> A local launcher for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) — the **black whale launcher**.
+> Double-click the black whale icon on the desktop and your default browser opens the DeepSeek Harness Web GUI automatically.
 
 English | [中文](README.zh.md)
 
-DeepSeek Harness (`dsh`) is an open-source agent harness developed by [DeepSeek AI](https://deepseek.com).
+## What is this?
 
-It uses an architecture where **everything is a plugin**, and is powered by [Cordis](https://github.com/cordiverse/cordis), whose design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://github.com/cordiverse/paper).
+`dsh-local-launcher` is a local deployment of [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) packaged as a one-click launcher, featuring the **black whale** icon.
 
-## Developer preview
+DeepSeek Harness is an open-source agent harness developed by [DeepSeek AI](https://deepseek.com). It uses an architecture where **everything is a plugin**, powered by [Cordis](https://github.com/cordiverse/cordis).
 
-DeepSeek Harness is currently in _developer preview_ and is iterating rapidly. **THERE WILL BE COMPATIBILITY-BREAKING CHANGES.**
+## Features
 
-## Run
+- 🐋 **Black whale launcher** — desktop shortcut with the black whale icon (`assets/dsh-whale.ico`)
+- ⚡ **Auto-open browser** — after launch, the Web GUI opens in your default browser automatically at `http://127.0.0.1:3080`
+- 🧩 Full DeepSeek Harness source (upstream: [`deepseek-ai/deepseek-harness`](https://github.com/deepseek-ai/deepseek-harness), MIT)
 
-### Run from `npm`
+## Quick start
 
-Install `Node.js`, then run:
+### Prerequisites
 
-```sh
-npx @deepseek-ai/dsh web
-```
-
-The command starts the Web UI, served at `http://127.0.0.1:3080` by default. See [Web UI guide](docs/user/guide/index.md).
+- [Node.js](https://nodejs.org) 18+ (with `pnpm`)
 
 ### Run from source
 
-To run from a repository checkout:
-
 ```sh
-git clone https://github.com/deepseek-ai/deepseek-harness.git
-cd deepseek-harness
+git clone https://github.com/drgf4/dsh-local-launcher
+cd dsh-local-launcher
 pnpm install
 pnpm run build
 pnpm dsh web
 ```
 
-## Community and support
+The Web UI is served at `http://127.0.0.1:3080` by default.
 
-- Feel free to submit feedback or bug reports through [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions).
-- Add the [`dsh-plugin`](https://github.com/topics/dsh-plugin) topic to your plugin repository for discoverability.
-- Join <a href="https://discord.gg/Ycq5dCaS4">DeepSeek Harness Discord community</a>.
+### Or run from npm (no checkout needed)
 
-## Contributing
+```sh
+npx @deepseek-ai/dsh web
+```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+### Desktop launcher with auto-open browser (Windows)
 
-## Development
+The desktop black whale shortcut points to a small wrapper script that starts the server and opens the browser once it is ready:
 
-Start with the [development guide](docs/development.md) and [architecture documentation](docs/architecture.md).
+```js
+// launch-dsh-web.cjs — point your shortcut at this wrapper (adjust DSH_ROOT)
+const { spawn } = require('node:child_process');
+const http = require('node:http');
+const path = require('node:path');
 
-For agents, follow [AGENTS.md](AGENTS.md).
+const DSH_ROOT = 'C:\\path\\to\\dsh-local-launcher';
+const BIN = path.join(DSH_ROOT, 'apps', 'cli', 'lib', 'bin.js');
+const FALLBACK_URL = 'http://127.0.0.1:3080';
+
+let opened = false;
+const child = spawn(process.execPath, [BIN, 'web'], { cwd: DSH_ROOT, stdio: ['inherit', 'pipe', 'inherit'] });
+
+let buffered = '';
+child.stdout.on('data', (chunk) => {
+  const text = chunk.toString('utf8');
+  try { process.stdout.write(text); } catch {}
+  if (!opened) {
+    buffered += text;
+    const m = buffered.match(/https?:\/\/127\.0\.0\.1:\d+/);
+    if (m) { opened = true; spawn('cmd', ['/c', 'start', '', m[0]], { stdio: 'ignore', detached: true }).unref(); }
+  }
+});
+
+const timer = setInterval(() => {
+  if (opened) return;
+  const req = http.get(FALLBACK_URL, (res) => {
+    res.resume();
+    opened = true;
+    spawn('cmd', ['/c', 'start', '', FALLBACK_URL], { stdio: 'ignore', detached: true }).unref();
+  });
+  req.on('error', () => {});
+  req.setTimeout(1500, () => req.destroy());
+}, 1000);
+
+child.on('exit', (code, signal) => { clearInterval(timer); process.exitCode = code ?? (signal ? 1 : 0); });
+```
+
+> The shortcut should run `node "path\to\launch-dsh-web.cjs"` with the working directory set to the checkout root.
+
+## Repository layout
+
+- `apps/` — CLI and web apps
+- `packages/` — all DeepSeek Harness packages (plugin architecture)
+- `assets/` — black whale icons used by the launcher
+- `docs/` — documentation
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — upstream [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) is MIT-licensed; third-party notices are disclosed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-Third-party dependencies and their licenses are disclosed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+## Upstream
+
+This repository is a local launcher distribution of [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness). Not an official DeepSeek AI project.
